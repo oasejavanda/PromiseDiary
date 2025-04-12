@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="description" content="Promise Diary - a personal day tracker">
+    <meta name="author" content="Your Name">
+    <title>Promise Diary</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon" />
+    <style>
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: 'Georgia', serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .promise-text {
+            font-size: 1.5rem;
+            text-align: center;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        .start-btn, .day-submit, .save-btn {
+            background: transparent;
+            color: white;
+            border: 1px solid white;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .start-btn:hover, .day-submit:hover, .save-btn:hover {
+            background: white;
+            color: black;
+        }
+        .day-form {
+            display: none;
+            margin: 20px 0;
+        }
+        .day-input {
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid white;
+            color: white;
+            padding: 5px;
+            width: 80px;
+            margin-right: 10px;
+        }
+        .diary-entries {
+            margin-top: 30px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .day-entry {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 20px;
+        }
+        .day-header {
+            display: flex;
+            justify-content: space-between;
+            cursor: pointer;
+            padding: 10px 0;
+        }
+        .day-content {
+            display: none;
+            margin-top: 10px;
+        }
+        .day-textarea {
+            width: 100%;
+            height: 100px;
+            background: #111;
+            color: white;
+            border: 1px solid #333;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .timestamp {
+            color: #aaa;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Mei</h1>
+        <div class="promise-text">
+            I promise. I'll come back for you.<br>
+            No matter whatever it takes.
+        </div>
+
+        <button class="start-btn">Start Counting Days</button>
+        
+        <div class="day-form">
+            <input type="number" class="day-input" placeholder="Day" min="1">
+            <button class="day-submit">Add Day</button>
+        </div>
+
+        <div class="diary-entries"></div>
+    </div>
+
+    <script>
+        const startBtn = document.querySelector('.start-btn');
+        const dayForm = document.querySelector('.day-form');
+        const diaryEntries = document.querySelector('.diary-entries');
+        const dayInput = document.querySelector('.day-input');
+        const daySubmit = document.querySelector('.day-submit');
+
+        let diaryData = JSON.parse(localStorage.getItem('diaryEntries')) || {};
+
+        document.addEventListener('DOMContentLoaded', () => {
+            startBtn.addEventListener('click', () => {
+                startBtn.style.display = 'none';
+                dayForm.style.display = 'block';
+                loadDiaryEntries();
+            });
+
+            daySubmit.addEventListener('click', addNewDay);
+        });
+
+        function addNewDay() {
+            const dayNumber = parseInt(dayInput.value);
+            if (isNaN(dayNumber) || dayNumber < 1) return;
+
+            if (diaryData[`day-${dayNumber}`]) {
+                alert(`Day ${dayNumber} already exists!`);
+                return;
+            }
+
+            diaryData[`day-${dayNumber}`] = {
+                day: dayNumber,
+                text: "",
+                updatedAt: new Date().toISOString()
+            };
+            saveToLocal();
+            updateDiaryEntry(diaryData[`day-${dayNumber}`]);
+            dayInput.value = "";
+        }
+
+        function loadDiaryEntries() {
+            const entries = Object.values(diaryData).sort((a, b) => b.day - a.day);
+            entries.forEach(updateDiaryEntry);
+        }
+
+        function updateDiaryEntry(entry) {
+            const existingEntry = document.querySelector(`.day-${entry.day}`);
+            if (existingEntry) {
+                const textarea = existingEntry.querySelector('.day-textarea');
+                textarea.value = entry.text;
+                existingEntry.querySelector('.timestamp').textContent = formatDate(new Date(entry.updatedAt));
+            } else {
+                const entryDiv = document.createElement('div');
+                entryDiv.className = `day-entry day-${entry.day}`;
+
+                entryDiv.innerHTML = `
+                    <div class="day-header">
+                        <span>Day ${entry.day}</span>
+                        <span class="timestamp">${formatDate(new Date(entry.updatedAt))}</span>
+                    </div>
+                    <div class="day-content">
+                        <textarea class="day-textarea">${entry.text}</textarea>
+                        <button class="save-btn" data-day="${entry.day}">Save</button>
+                    </div>
+                `;
+                diaryEntries.prepend(entryDiv);
+
+                entryDiv.querySelector('.day-header').addEventListener('click', function() {
+                    const content = this.nextElementSibling;
+                    content.style.display = content.style.display === 'block' ? 'none' : 'block';
+                });
+
+                entryDiv.querySelector('.save-btn').addEventListener('click', function() {
+                    const day = this.getAttribute('data-day');
+                    const text = this.previousElementSibling.value;
+                    saveDiaryEntry(day, text);
+                });
+            }
+        }
+
+        function saveDiaryEntry(day, text) {
+            diaryData[`day-${day}`].text = text;
+            diaryData[`day-${day}`].updatedAt = new Date().toISOString();
+            saveToLocal();
+            alert('Diary updated!');
+            updateDiaryEntry(diaryData[`day-${day}`]);
+        }
+
+        function saveToLocal() {
+            localStorage.setItem('diaryEntries', JSON.stringify(diaryData));
+        }
+
+        function formatDate(date) {
+            return date.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+    </script>
+</body>
+</html>
